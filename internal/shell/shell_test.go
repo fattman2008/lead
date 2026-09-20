@@ -2,6 +2,7 @@ package shell
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -11,6 +12,24 @@ func TestInstallHint(t *testing.T) {
 	}
 	if got := InstallHint("fish"); got != `pt shell init fish | source` {
 		t.Fatalf("fish: %q", got)
+	}
+}
+
+func TestInitScriptIncludesCompletions(t *testing.T) {
+	zsh := InitScript("zsh")
+	if !strings.Contains(zsh, "pt completion zsh") {
+		t.Fatalf("zsh init missing completion:\n%s", zsh)
+	}
+	if !strings.Contains(zsh, "__complete") {
+		t.Fatalf("zsh init missing __complete short-circuit:\n%s", zsh)
+	}
+	bash := InitScript("bash")
+	if !strings.Contains(bash, "pt completion bash") {
+		t.Fatalf("bash init missing completion:\n%s", bash)
+	}
+	fish := InitScript("fish")
+	if !strings.Contains(fish, "pt completion fish") {
+		t.Fatalf("fish init missing completion:\n%s", fish)
 	}
 }
 

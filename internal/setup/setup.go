@@ -35,7 +35,7 @@ func Run(shellName string) error {
 		fmt.Printf("Shell integration added to %s:\n", rcPath)
 		fmt.Printf("  %s\n", line)
 		fmt.Println()
-		fmt.Println("Reload your shell (or open a new terminal) for auto-cd to take effect.")
+		fmt.Println("Reload your shell (or open a new terminal) for auto-cd and tab completions.")
 	} else {
 		fmt.Printf("Shell integration already present in %s\n", rcPath)
 	}

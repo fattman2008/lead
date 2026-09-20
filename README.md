@@ -10,7 +10,7 @@ pt setup
 pt doctor
 ```
 
-`brew install` pulls peer deps (`worktrunk`, `withgraphite/tap/graphite`). `pt setup` configures Worktrunk's worktree path layout and installs shell integration (required for auto-cd).
+`brew install` pulls peer deps (`worktrunk`, `withgraphite/tap/graphite`). `pt setup` configures Worktrunk's worktree path layout and installs shell integration (required for auto-cd and tab completions).
 
 ### Upgrade
 
@@ -68,7 +68,9 @@ pt sync          # also removes worktrees for deleted/merged branches
 
 - **Worktree-aware:** `create`, `checkout`/`switch`/`co`, `up`, `down`, `list`, `remove`, `sync`, `delete`
 - **Graphite-shaped:** `modify`, `submit`, `restack`, `log`, `info`, `track`, `init`, `auth`, …
-- **Meta:** `setup`, `doctor`, `shell init`
+- **Meta:** `setup`, `doctor`, `shell init`, `completion`
+
+Tab completion is installed via `pt setup` / `eval "$(pt shell init zsh)"` (bash/fish too). Completions cover Lead commands, branch names for `checkout`/`--onto`, and delegate to `gt`/`wt` for passthrough flags.
 
 ## Development
 
