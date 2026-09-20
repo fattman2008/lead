@@ -1,6 +1,6 @@
 # Lead (`pt`)
 
-Graphite-shaped stacking with worktree-first parallelism. Backed by [`gt`](https://graphite.dev) (Graphite) and [`wt`](https://worktrunk.dev) (Worktrunk).
+Lightweight CLI wrapper over [graphite](https://graphite.com/docs/command-reference) + [worktrunk](https://worktrunk.dev/) for a graphite-like CLI with automatic managed per-branch worktrees.
 
 ## Install
 
