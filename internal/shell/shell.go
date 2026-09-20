@@ -8,17 +8,27 @@ import (
 // InitScript returns eval-able shell integration for the given shell name.
 func InitScript(shellName string) string {
 	switch shellName {
-	case "zsh", "bash":
-		return bashZshInit
+	case "zsh":
+		return zshInit
+	case "bash":
+		return bashInit
 	case "fish":
 		return fishInit
 	default:
-		return bashZshInit
+		return zshInit
 	}
 }
 
-const bashZshInit = `# lead (pt) shell integration — directory switching
-pt() {
+// bashZshCD is the shared directory-switching wrapper body (bash/zsh).
+// It short-circuits completion/`completion` so cobra's __complete is not
+// wrapped in mktemp + cd-file handling.
+const bashZshCD = `pt() {
+  case "$1" in
+    __complete|__completeNoDesc|completion)
+      command pt "$@"
+      return $?
+      ;;
+  esac
   local cd_file exit_code=0
   cd_file="$(mktemp)"
   LEAD_CD_FILE="$cd_file" command pt "$@" || exit_code=$?
@@ -34,8 +44,29 @@ pt() {
 }
 `
 
-const fishInit = `# lead (pt) shell integration — directory switching
+const zshInit = `# lead (pt) shell integration — directory switching + completions
+` + bashZshCD + `
+if command -v pt >/dev/null 2>&1; then
+  source <(command pt completion zsh)
+fi
+`
+
+const bashInit = `# lead (pt) shell integration — directory switching + completions
+` + bashZshCD + `
+if command -v pt >/dev/null 2>&1; then
+  source <(command pt completion bash)
+fi
+`
+
+const fishInit = `# lead (pt) shell integration — directory switching + completions
 function pt
+  if test (count $argv) -gt 0
+    switch $argv[1]
+      case __complete __completeNoDesc completion
+        command pt $argv
+        return $status
+    end
+  end
   set -l cd_file (mktemp)
   set -l exit_code 0
   env LEAD_CD_FILE="$cd_file" command pt $argv
@@ -49,6 +80,9 @@ function pt
   end
   rm -f "$cd_file"
   return $exit_code
+end
+if command -q pt
+  command pt completion fish | source
 end
 `
 

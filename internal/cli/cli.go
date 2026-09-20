@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fattman2008/lead/internal/complete"
 	"github.com/fattman2008/lead/internal/doctor"
 	"github.com/fattman2008/lead/internal/flow"
 	"github.com/fattman2008/lead/internal/gt"
@@ -23,8 +24,18 @@ var Version = "0.1.0"
 // Execute runs the pt CLI. Returns process exit code.
 func Execute() int {
 	root := newRoot()
+	// Register before passthrough checks so `pt help` / `pt completion` are not
+	// forwarded to gt (cobra normally adds these inside Execute).
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
 
 	args := os.Args[1:]
+	if isCompletionRequest(args) {
+		// Discover gt subcommands only when completing, so normal invocations
+		// stay fast while tab-completion reaches full gt flag/command parity.
+		complete.RegisterGtPassthroughs(root, passthrough)
+	}
+
 	if shouldPassthrough(root, args) {
 		code, err := gt.Run("", args...)
 		if err != nil {
@@ -45,8 +56,24 @@ func Execute() int {
 	return 0
 }
 
+func isCompletionRequest(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "__complete", "__completeNoDesc":
+		return true
+	default:
+		return false
+	}
+}
+
 func shouldPassthrough(root *cobra.Command, args []string) bool {
 	if len(args) == 0 {
+		return false
+	}
+	// __complete is registered only inside cobra.Execute, so Find won't see it yet.
+	if isCompletionRequest(args) {
 		return false
 	}
 	// Let cobra handle help/version flags at root.
@@ -145,6 +172,8 @@ Examples:
 	cmd.Flags().BoolVar(&opts.AI, "ai", false, "AI-generate branch name and message")
 	cmd.Flags().BoolVar(&opts.NoAI, "no-ai", false, "Do not AI-generate name/message")
 	cmd.Flags().CountVarP(&opts.Verbose, "verbose", "v", "Show diffs in commit template")
+	_ = cmd.RegisterFlagCompletionFunc("onto", complete.Branches)
+	_ = cmd.RegisterFlagCompletionFunc("name", cobra.NoFileCompletions)
 	return cmd
 }
 
@@ -167,7 +196,8 @@ Examples:
   pt checkout -s           # only ancestors/descendants of current branch
   pt checkout feature      # move to feature's worktree
   pt checkout -t           # trunk worktree`,
-		Args: cobra.ArbitraryArgs,
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: complete.BranchArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o := opts
 			o.Branch = ""
@@ -216,6 +246,7 @@ func cmdList() *cobra.Command {
 		Aliases:            []string{"ls"},
 		Short:              "List worktrees",
 		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromWt("list"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
@@ -239,6 +270,7 @@ func cmdRemove() *cobra.Command {
 		Aliases:            []string{"rm"},
 		Short:              "Remove a worktree",
 		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromWt("remove"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
@@ -261,6 +293,7 @@ func cmdSync() *cobra.Command {
 		Use:                "sync",
 		Short:              "Sync stacks with trunk, then remove orphaned worktrees",
 		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromGt("sync"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return flow.Sync(args)
 		},
@@ -273,6 +306,7 @@ func cmdDelete() *cobra.Command {
 		Aliases:            []string{"dl"},
 		Short:              "Delete a branch and its worktree",
 		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromGt("delete"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return flow.Delete(args)
 		},
@@ -308,9 +342,10 @@ func cmdShell() *cobra.Command {
 		Short: "Shell integration helpers",
 	}
 	cmd.AddCommand(&cobra.Command{
-		Use:   "init [bash|zsh|fish]",
-		Short: "Print shell integration for eval",
-		Args:  cobra.MaximumNArgs(1),
+		Use:       "init [bash|zsh|fish]",
+		Short:     "Print shell integration for eval",
+		Args:      cobra.MaximumNArgs(1),
+		ValidArgs: []string{"bash", "zsh", "fish"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := shell.DetectFromEnv(os.Getenv("SHELL"))
 			if len(args) == 1 {
@@ -328,6 +363,7 @@ func passthrough(name, alias, short string) *cobra.Command {
 		Use:                name,
 		Short:              short,
 		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromGt(name),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			code, err := gt.Run("", append([]string{name}, args...)...)
 			if err != nil {
