@@ -1,6 +1,9 @@
 package shell
 
-import "fmt"
+import (
+	"fmt"
+	"path/filepath"
+)
 
 // InitScript returns eval-able shell integration for the given shell name.
 func InitScript(shellName string) string {
@@ -74,7 +77,27 @@ func PrintInit(shellName string) string {
 	return InitScript(shellName) + "\n"
 }
 
-// InstallHint returns a one-liner for docs.
+// InstallHint returns a one-liner for docs / shell rc files.
 func InstallHint(shellName string) string {
-	return fmt.Sprintf(`eval "$(pt shell init %s)"`, shellName)
+	switch shellName {
+	case "fish":
+		return `pt shell init fish | source`
+	default:
+		if shellName == "" {
+			shellName = "zsh"
+		}
+		return fmt.Sprintf(`eval "$(pt shell init %s)"`, shellName)
+	}
+}
+
+// RCPath returns the usual startup file path for shellName under home.
+func RCPath(home, shellName string) string {
+	switch shellName {
+	case "bash":
+		return filepath.Join(home, ".bashrc")
+	case "fish":
+		return filepath.Join(home, ".config", "fish", "config.fish")
+	default:
+		return filepath.Join(home, ".zshrc")
+	}
 }

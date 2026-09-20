@@ -18,7 +18,7 @@ func Emit(path string) error {
 	file := os.Getenv(EnvVar)
 	if file == "" {
 		fmt.Fprintf(os.Stderr, "note: shell integration inactive; cd manually to %s\n", path)
-		fmt.Fprintf(os.Stderr, "      run: eval \"$(pt shell init)\"  (or: pt setup)\n")
+		fmt.Fprintf(os.Stderr, "      run: pt setup\n")
 		return nil
 	}
 	return os.WriteFile(file, []byte(path+"\n"), 0o600)

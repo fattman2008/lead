@@ -15,6 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version is the CLI version. Overridden at link time via:
+//
+//	-ldflags "-X github.com/fattman2008/lead/internal/cli.Version=…"
+var Version = "0.1.0"
+
 // Execute runs the pt CLI. Returns process exit code.
 func Execute() int {
 	root := newRoot()
@@ -69,7 +74,7 @@ func newRoot() *cobra.Command {
 		Long:          longHelp,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       "0.1.0",
+		Version:       Version,
 	}
 
 	root.AddCommand(

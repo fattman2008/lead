@@ -4,24 +4,22 @@ Lightweight CLI wrapper over [graphite](https://graphite.com/docs/command-refere
 
 ## Install
 
-Peer dependencies (must be on `PATH`):
-
-- Graphite CLI (`gt`)
-- Worktrunk (`wt`)
-- `git`
-
-Build:
-
 ```bash
-go build -o bin/pt ./cmd/pt
-# optional: put bin/pt on your PATH
+brew install fattman2008/tap/lead
+pt setup
+pt doctor
 ```
 
-Setup (shell cd + Worktrunk path layout):
+`brew install` pulls peer deps (`worktrunk`, `withgraphite/tap/graphite`). `pt setup` configures Worktrunk's worktree path layout and installs shell integration (required for auto-cd).
+
+### From source
+
+Peer dependencies must be on `PATH`: Graphite CLI (`gt`), Worktrunk (`wt`), and `git`.
 
 ```bash
+go build -ldflags "-X github.com/fattman2008/lead/internal/cli.Version=0.1.0" -o bin/pt ./cmd/pt
+# put bin/pt on your PATH, then:
 pt setup
-eval "$(pt shell init zsh)"   # or bash / fish; add to ~/.zshrc
 ```
 
 `pt setup` sets Worktrunk:
