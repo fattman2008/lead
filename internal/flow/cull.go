@@ -32,30 +32,6 @@ func Sync(args []string) error {
 	return cullMissingBranches(cwd, before)
 }
 
-// Delete runs gt delete then culls worktrees whose branches no longer exist
-// (including cascade-deleted upstack children).
-func Delete(args []string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	before, err := wt.ListJSON(cwd)
-	if err != nil {
-		return fmt.Errorf("list worktrees before delete: %w", err)
-	}
-
-	code, err := gt.Run(cwd, append([]string{"delete"}, args...)...)
-	if err != nil {
-		return err
-	}
-	if code != 0 {
-		return exitCodeError(code)
-	}
-
-	return cullMissingBranches(cwd, before)
-}
-
 func cullMissingBranches(cwd string, before *wt.List) error {
 	for _, item := range before.Items {
 		if item.Worktree == nil || item.Branch == "" {

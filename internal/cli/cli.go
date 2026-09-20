@@ -272,6 +272,11 @@ func cmdDelete() *cobra.Command {
 		Use:                "delete [name]",
 		Aliases:            []string{"dl"},
 		Short:              "Delete a branch and its worktree",
+		Long: `Delete a branch (via Graphite) and remove its worktree.
+
+When the branch you are on is deleted, the shell cds into the parent
+worktree (or trunk if there is no parent) — Graphite's post-delete
+checkout, translated to worktrees.`,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return flow.Delete(args)

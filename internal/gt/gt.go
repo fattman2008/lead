@@ -24,6 +24,11 @@ func run(cwd string, stdout, stderr io.Writer, args ...string) (int, error) {
 		cmdArgs = append([]string{"--cwd", cwd}, args...)
 	}
 	cmd := exec.Command(Bin, cmdArgs...)
+	if cwd != "" {
+		// Also set Dir: after removing the invoking worktree the process cwd
+		// may be gone, and gt still resolves paths from process.cwd().
+		cmd.Dir = cwd
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -40,6 +45,22 @@ func run(cwd string, stdout, stderr io.Writer, args ...string) (int, error) {
 // Parent returns the Graphite parent branch of the current branch in cwd.
 func Parent(cwd string) (string, error) {
 	return rawOutput(cwd, "parent", "--no-interactive")
+}
+
+// ParentOf returns the Graphite parent of branch from metadata (empty if none/unknown).
+func ParentOf(cwd, branch string) (string, error) {
+	if branch == "" {
+		return "", nil
+	}
+	nodes, err := loadBranchMetadata(cwd)
+	if err != nil {
+		return "", err
+	}
+	n := nodes[branch]
+	if n == nil {
+		return "", nil
+	}
+	return n.Parent, nil
 }
 
 // Children returns child branch names of the current branch in cwd.
@@ -60,6 +81,34 @@ func Children(cwd string) ([]string, error) {
 		}
 	}
 	return kids, nil
+}
+
+// Descendants returns Graphite upstack branches of branch (not including branch).
+func Descendants(cwd, branch string) ([]string, error) {
+	nodes, err := loadBranchMetadata(cwd)
+	if err != nil {
+		return nil, err
+	}
+	n := nodes[branch]
+	if n == nil {
+		return nil, nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	queue := append([]string(nil), n.Kids...)
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+		if child := nodes[name]; child != nil {
+			queue = append(queue, child.Kids...)
+		}
+	}
+	return out, nil
 }
 
 // Trunk returns the configured Graphite trunk branch for the repo.
@@ -84,6 +133,9 @@ func rawOutput(cwd string, args ...string) (string, error) {
 		cmdArgs = append([]string{"--cwd", cwd}, args...)
 	}
 	cmd := exec.Command(Bin, cmdArgs...)
+	if cwd != "" {
+		cmd.Dir = cwd
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

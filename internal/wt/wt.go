@@ -209,6 +209,15 @@ func Remove(cwd string, branch string, force bool) (int, error) {
 	return Run(cwd, args...)
 }
 
+// RemoveKeepBranch removes a worktree but leaves the branch ref (for gt delete).
+func RemoveKeepBranch(cwd, branch string, force bool) (int, error) {
+	args := []string{"remove", "-y", "--no-delete-branch", "--foreground", branch}
+	if force {
+		args = append(args, "--force")
+	}
+	return Run(cwd, args...)
+}
+
 // LookPath checks that wt is on PATH.
 func LookPath() (string, error) {
 	return exec.LookPath(Bin)
