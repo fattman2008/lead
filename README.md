@@ -12,6 +12,12 @@ pt doctor
 
 `brew install` pulls peer deps (`worktrunk`, `withgraphite/tap/graphite`). `pt setup` configures Worktrunk's worktree path layout and installs shell integration (required for auto-cd).
 
+### Upgrade
+
+```bash
+brew update && brew upgrade lead
+```
+
 ### From source
 
 Peer dependencies must be on `PATH`: Graphite CLI (`gt`), Worktrunk (`wt`), and `git`.
@@ -71,3 +77,9 @@ go test ./...
 go build -o bin/pt ./cmd/pt
 ./bin/pt doctor
 ```
+
+### Releasing (Homebrew)
+
+1. Tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`
+2. Bump the formula: `./scripts/bump-homebrew-formula.sh X.Y.Z ~/projects/homebrew-tap`
+3. Commit and push in `homebrew-tap`
