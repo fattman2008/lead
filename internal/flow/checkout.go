@@ -23,8 +23,9 @@ type CheckoutOpts struct {
 // Checkout selects a branch Graphite-style, then moves into its worktree.
 //
 // Named targets and --trunk go straight to wt (create worktree if needed + cd).
-// Interactive selection lists Graphite-tracked branches (stack-aware) and then
-// wt-switches — never checks the branch out in the current worktree.
+// Interactive selection lists Graphite-tracked branches that still exist as
+// local git refs (stack-aware) and then wt-switches — never checks the branch
+// out in the current worktree.
 func Checkout(opts CheckoutOpts) error {
 	cwd, err := os.Getwd()
 	if err != nil {

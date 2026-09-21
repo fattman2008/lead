@@ -29,7 +29,7 @@ func TestOrderFromTrunksAndStack(t *testing.T) {
 		},
 	}
 
-	ordered := orderFromTrunks(nodes, []string{"main"})
+	ordered := orderFromTrunks(nodes, []string{"main"}, nil)
 	got := names(ordered)
 	want := []string{"main", "feat-a", "feat-a2", "feat-b"}
 	if len(got) != len(want) {
@@ -91,6 +91,60 @@ func TestListCheckoutBranchesLive(t *testing.T) {
 	}
 	if len(stacked) > len(cs) {
 		t.Fatalf("stack filter grew list: stack=%d all=%d", len(stacked), len(cs))
+	}
+
+	local, err := gitutil.LocalBranches(cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := make(map[string]bool, len(local))
+	for _, b := range local {
+		have[b] = true
+	}
+	for _, c := range cs {
+		if !have[c.Name] {
+			t.Fatalf("listed %q with no local ref (got %v)", c.Name, names(cs))
+		}
+	}
+}
+
+func TestOrderFromTrunksSkipsMissingRefs(t *testing.T) {
+	nodes := map[string]*BranchNode{
+		"main": {
+			Name: "main",
+			Kids: []string{"stale-mid", "stale-leaf"},
+		},
+		"stale-mid": {
+			Name:   "stale-mid",
+			Parent: "main",
+			Kids:   []string{"child"},
+		},
+		"child": {
+			Name:   "child",
+			Parent: "stale-mid",
+		},
+		"stale-leaf": {
+			Name:   "stale-leaf",
+			Parent: "main",
+		},
+	}
+
+	ordered := orderFromTrunks(nodes, []string{"main", "missing-trunk"}, map[string]bool{
+		"main":  true,
+		"child": true,
+	})
+	got := names(ordered)
+	want := []string{"main", "child"}
+	if len(got) != len(want) {
+		t.Fatalf("order=%v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("order[%d]=%q want %q (full %v)", i, got[i], want[i], got)
+		}
+	}
+	if ordered[0].Depth != 0 || ordered[1].Depth != 1 {
+		t.Fatalf("depths=%v want [0 1] (child promoted under main)", depths(ordered))
 	}
 }
 
