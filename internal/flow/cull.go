@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"github.com/fattman2008/lead/internal/gitutil"
-	"github.com/fattman2008/lead/internal/gt"
 	"github.com/fattman2008/lead/internal/wt"
 )
 
-// Sync runs gt sync then culls worktrees whose branches no longer exist.
+// Sync unlocks other worktrees, runs gt sync, relocks survivors, then culls
+// worktrees whose branches no longer exist.
 func Sync(args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -21,12 +21,8 @@ func Sync(args []string) error {
 		return fmt.Errorf("list worktrees before sync: %w", err)
 	}
 
-	code, err := gt.Run(cwd, append([]string{"sync"}, args...)...)
-	if err != nil {
+	if err := runGtUnlocked(cwd, append([]string{"sync"}, args...), UnlockAllOther, nil); err != nil {
 		return err
-	}
-	if code != 0 {
-		return exitCodeError(code)
 	}
 
 	return cullMissingBranches(cwd, before)
