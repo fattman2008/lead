@@ -45,6 +45,8 @@ worktree-path = "~/worktrees/{{ repo }}/{{ branch | sanitize }}"
 | Restack / amend / submit | `pt restack` / `pt modify` / `pt submit` |
 | Sync trunk + tidy worktrees | `pt sync` |
 | Delete branch + worktree (cd to parent/trunk) | `pt delete` |
+| Path of the checkout to run local binaries from | `pt root` |
+| Pin a worktree for `pt root` outside the repo | `pt pin` |
 
 Unknown `pt <cmd>` arguments are forwarded to `gt` (same idea as `gt` → `git`)
 
@@ -70,11 +72,48 @@ pt delete        # deletes branch + worktree; if current, cds to parent (else tr
 
 Restack/modify/sync detach clean parked worktrees so Graphite can move tips (dirty trees block unless `--force`).
 
+## Local builds
+
+The canonical clone stays on trunk; feature work lives in linked worktrees. Hardcoded paths like `~/Projects/foo/bin/foo` therefore always hit trunk. `pt root` prints the checkout to use instead:
+
+1. The worktree you are in, if it belongs to that repo
+2. Else the pin (`pt pin`)
+3. Else the main / canonical worktree
+
+```bash
+# from inside a worktree of the project, or from anywhere after pinning
+$(pt root --repo ~/Projects/lead)/bin/pt doctor
+
+# dogfood a feature from other directories
+pt pin              # in the worktree you want
+pt pin --clear      # back to the main clone
+```
+
+`--repo` is required when the wrapper runs from another project (`pt root` without it would resolve *that* repo). Example wrapper:
+
+```zsh
+localpt() {
+  local cd_file exit_code=0 root
+  root="$(command pt root --repo ~/Projects/lead)" || return
+  cd_file="$(mktemp)"
+  LEAD_CD_FILE="$cd_file" "$root/bin/pt" "$@" || exit_code=$?
+  if [[ -s "$cd_file" ]]; then
+    builtin cd -- "$(<"$cd_file")"
+    local cd_exit=$?
+    if [[ $exit_code -eq 0 ]]; then
+      exit_code=$cd_exit
+    fi
+  fi
+  command rm -f "$cd_file"
+  return "$exit_code"
+}
+```
+
 ## Commands (core)
 
 - **Worktree-aware:** `create`, `checkout`/`switch`/`co`, `up`, `down`, `list`, `remove`, `sync`, `delete`, `modify`, `restack`, `continue`, `abort`, `undo`
 - **Graphite-shaped:** `submit`, `log`, `info`, `track`, `init`, `auth`, …
-- **Meta:** `setup`, `doctor`, `shell init`, `completion`
+- **Meta:** `root`, `pin`, `setup`, `doctor`, `shell init`, `completion`
 
 Tab completion is installed via `pt setup` / `eval "$(pt shell init zsh)"` (bash/fish too). Completions cover Lead commands, branch names for `checkout`/`--onto`, and delegate to `gt`/`wt` for passthrough flags.
 

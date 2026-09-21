@@ -8,7 +8,7 @@ import (
 )
 
 func TestGtPassthroughSkipCoversOverrides(t *testing.T) {
-	for _, name := range []string{"create", "checkout", "up", "down", "sync", "delete", "list", "remove", "completion"} {
+	for _, name := range []string{"create", "checkout", "up", "down", "sync", "delete", "list", "remove", "root", "pin", "completion"} {
 		if !gtPassthroughSkip[name] {
 			t.Fatalf("expected %q in gtPassthroughSkip", name)
 		}

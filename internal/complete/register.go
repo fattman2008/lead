@@ -27,6 +27,8 @@ var gtPassthroughSkip = map[string]bool{
 	"shell":  true,
 	"list":   true,
 	"remove": true,
+	"root":   true,
+	"pin":    true,
 	"help":   true,
 }
 
