@@ -63,7 +63,7 @@ func runGtUnlocked(cwd string, args []string, scope UnlockScope, check lock.Chec
 	}
 
 	force := hasForceFlag(args)
-	detached, err := detachTargets(list, cwdAbs, targets, check, force)
+	detached, err := detachTargets(list, cwdAbs, managedPrefix(), targets, check, force)
 	if err != nil {
 		_ = relockDetached(detached, false)
 		return err
@@ -109,8 +109,8 @@ func unlockTargetBranches(cwd, here string, scope UnlockScope, list *wt.List) (m
 // detachTargets detaches worktrees for branches in want, skipping main and the
 // invoking worktree (skipPath). Locked dirty trees error unless force.
 // Validates all targets before detaching any.
-func detachTargets(list *wt.List, skipPath string, want map[string]bool, check lock.Checker, force bool) ([]detachedWT, error) {
-	cands, err := detachCandidates(list, skipPath, want, check, force)
+func detachTargets(list *wt.List, skipPath, prefix string, want map[string]bool, check lock.Checker, force bool) ([]detachedWT, error) {
+	cands, err := detachCandidates(list, skipPath, prefix, want, check, force)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func detachTargets(list *wt.List, skipPath string, want map[string]bool, check l
 }
 
 // detachCandidates returns worktrees that would be detached (no git side effects).
-func detachCandidates(list *wt.List, skipPath string, want map[string]bool, check lock.Checker, force bool) ([]detachedWT, error) {
+func detachCandidates(list *wt.List, skipPath, prefix string, want map[string]bool, check lock.Checker, force bool) ([]detachedWT, error) {
 	if check == nil {
 		check = lock.Default()
 	}
@@ -143,6 +143,9 @@ func detachCandidates(list *wt.List, skipPath string, want map[string]bool, chec
 			continue
 		}
 		if samePath(item.Worktree.Path, skipPath) {
+			continue
+		}
+		if skipUnmanaged(item, prefix) {
 			continue
 		}
 		dirty := item.Worktree.Changes.Dirty()

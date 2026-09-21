@@ -61,6 +61,11 @@ func Delete(args []string) error {
 		strip = append(strip, desc...)
 	}
 
+	prefix := managedPrefix()
+	if err := refuseUnmanagedDelete(before, strip, prefix); err != nil {
+		return err
+	}
+
 	parent, perr := gt.ParentOf(cwd, branch)
 	if perr != nil {
 		return fmt.Errorf("resolve parent of %s: %w", branch, perr)
@@ -71,7 +76,7 @@ func Delete(args []string) error {
 
 	// Relocate before strip whenever the active worktree is in the strip set
 	// (delete current, or --upstack that includes the current descendant).
-	if willStripHere(before, strip, here) {
+	if willStripHere(before, strip, here, prefix) {
 		destBranch, err := resolveDeleteDest(cwd, parent)
 		if err != nil {
 			return err
@@ -88,7 +93,7 @@ func Delete(args []string) error {
 	}
 
 	force := hasForceFlag(args)
-	stripped, err := stripWorktrees(opCwd, before, strip, destPath, force)
+	stripped, err := stripWorktrees(opCwd, before, strip, destPath, prefix, force)
 	if err != nil {
 		restoreStrippedWorktrees(opCwd, stripped, here)
 		return err
@@ -146,8 +151,31 @@ func Delete(args []string) error {
 	return cullMissingBranches(destPath, before)
 }
 
+func refuseUnmanagedDelete(list *wt.List, branches []string, prefix string) error {
+	var parts []string
+	seen := map[string]bool{}
+	for _, b := range branches {
+		if seen[b] {
+			continue
+		}
+		seen[b] = true
+		item := worktreeItem(list, b)
+		if item == nil || item.Worktree == nil || item.Worktree.Main {
+			continue
+		}
+		if wt.IsManaged(item.Worktree.Path, prefix) {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s is checked out in unmanaged worktree %s", b, item.Worktree.Path))
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return fmt.Errorf("cannot delete: %s; switch or remove that worktree first", strings.Join(parts, "; "))
+}
+
 // willStripHere reports whether stripWorktrees would remove the worktree for here.
-func willStripHere(before *wt.List, strip []string, here string) bool {
+func willStripHere(before *wt.List, strip []string, here, prefix string) bool {
 	if here == "" {
 		return false
 	}
@@ -159,12 +187,15 @@ func willStripHere(before *wt.List, strip []string, here string) bool {
 		if item == nil || item.Worktree == nil || item.Worktree.Main {
 			return false
 		}
+		if !wt.IsManaged(item.Worktree.Path, prefix) {
+			return false
+		}
 		return true
 	}
 	return false
 }
 
-func stripWorktrees(opCwd string, before *wt.List, branches []string, destPath string, force bool) ([]string, error) {
+func stripWorktrees(opCwd string, before *wt.List, branches []string, destPath, prefix string, force bool) ([]string, error) {
 	var stripped []string
 	strippedSet := map[string]bool{}
 	for _, b := range branches {
@@ -173,6 +204,9 @@ func stripWorktrees(opCwd string, before *wt.List, branches []string, destPath s
 			continue
 		}
 		if item.Worktree.Main {
+			continue
+		}
+		if skipUnmanaged(*item, prefix) {
 			continue
 		}
 		if destPath != "" && samePath(item.Worktree.Path, destPath) {
