@@ -154,9 +154,16 @@ func Up() error {
 	if len(kids) == 0 {
 		return fmt.Errorf("no upstack branch")
 	}
-	target := kids[0]
-	if len(kids) > 1 {
-		fmt.Fprintf(os.Stderr, "multiple upstack branches; using %s (also: %s)\n", target, strings.Join(kids[1:], ", "))
+	exist, err := keepLocalBranches(cwd, kids)
+	if err != nil {
+		return err
+	}
+	if len(exist) == 0 {
+		return fmt.Errorf("upstack branch %s no longer exists", kids[0])
+	}
+	target := exist[0]
+	if len(exist) > 1 {
+		fmt.Fprintf(os.Stderr, "multiple upstack branches; using %s (also: %s)\n", target, strings.Join(exist[1:], ", "))
 	}
 	return SwitchTo(target, nil)
 }
@@ -171,5 +178,33 @@ func Down() error {
 	if err != nil {
 		return err
 	}
+	if parent == "" {
+		return fmt.Errorf("switch: branch required")
+	}
+	ok, err := gitutil.BranchExists(cwd, parent)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("parent branch %s no longer exists", parent)
+	}
 	return SwitchTo(parent, nil)
+}
+
+// keepLocalBranches returns names that still exist as local git refs, in order.
+func keepLocalBranches(cwd string, names []string) ([]string, error) {
+	var out []string
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		ok, err := gitutil.BranchExists(cwd, name)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }

@@ -35,6 +35,8 @@ type BranchChoice struct {
 }
 
 // ListCheckoutBranches returns stack-ordered branches for interactive checkout.
+// Graphite-tracked names with no local git ref are omitted; their children stay
+// in the tree at the skipped node's depth.
 func ListCheckoutBranches(cwd string, opts ListOpts) ([]BranchChoice, error) {
 	cfg, err := readRepoConfig(cwd)
 	if err != nil {
@@ -59,7 +61,16 @@ func ListCheckoutBranches(cwd string, opts ListOpts) ([]BranchChoice, error) {
 		roots = trunks
 	}
 
-	ordered := orderFromTrunks(nodes, roots)
+	local, err := gitutil.LocalBranches(cwd)
+	if err != nil {
+		return nil, err
+	}
+	existing := make(map[string]bool, len(local))
+	for _, b := range local {
+		existing[b] = true
+	}
+
+	ordered := orderFromTrunks(nodes, roots, existing)
 	if opts.Stack {
 		if opts.Current == "" {
 			return nil, fmt.Errorf("current branch required for --stack")
@@ -75,10 +86,6 @@ func ListCheckoutBranches(cwd string, opts ListOpts) ([]BranchChoice, error) {
 	}
 
 	if opts.ShowUntracked {
-		local, err := gitutil.LocalBranches(cwd)
-		if err != nil {
-			return nil, err
-		}
 		tracked := make(map[string]bool, len(nodes))
 		for name := range nodes {
 			tracked[name] = true
@@ -183,7 +190,10 @@ func loadBranchMetadata(cwd string) (map[string]*BranchNode, error) {
 	return nodes, nil
 }
 
-func orderFromTrunks(nodes map[string]*BranchNode, trunks []string) []BranchChoice {
+// orderFromTrunks walks Graphite parent→child links. If existing is non-nil,
+// names without a local git ref are not emitted; their children keep the same
+// depth so a missing middle branch does not leave a hanging indent.
+func orderFromTrunks(nodes map[string]*BranchNode, trunks []string, existing map[string]bool) []BranchChoice {
 	seen := map[string]bool{}
 	var out []BranchChoice
 	var walk func(name string, depth int)
@@ -192,7 +202,11 @@ func orderFromTrunks(nodes map[string]*BranchNode, trunks []string) []BranchChoi
 			return
 		}
 		seen[name] = true
-		out = append(out, BranchChoice{Name: name, Depth: depth})
+		childDepth := depth
+		if existing == nil || existing[name] {
+			out = append(out, BranchChoice{Name: name, Depth: depth})
+			childDepth = depth + 1
+		}
 		n := nodes[name]
 		if n == nil {
 			return
@@ -200,7 +214,7 @@ func orderFromTrunks(nodes map[string]*BranchNode, trunks []string) []BranchChoi
 		kids := append([]string(nil), n.Kids...)
 		sort.Strings(kids)
 		for _, k := range kids {
-			walk(k, depth+1)
+			walk(k, childDepth)
 		}
 	}
 	for _, t := range trunks {
