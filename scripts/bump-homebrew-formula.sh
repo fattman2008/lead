@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 # Bump Formula/lead.rb in a local checkout of fattman2008/homebrew-tap.
-# Usage: scripts/bump-homebrew-formula.sh [version] [/path/to/homebrew-tap]
+# Usage: scripts/bump-homebrew-formula.sh [/path/to/homebrew-tap]
+# Version always comes from internal/version/VERSION (fallback: latest git tag).
 set -euo pipefail
 
-VERSION="${1:-}"
-TAP_DIR="${2:-$HOME/projects/homebrew-tap}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TAP_DIR="${1:-$HOME/projects/homebrew-tap}"
+VERSION=""
 
+if [[ -f "$ROOT/internal/version/VERSION" ]]; then
+  VERSION="$(tr -d '[:space:]' < "$ROOT/internal/version/VERSION")"
+fi
 if [[ -z "$VERSION" ]]; then
-  VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+  VERSION="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
   VERSION="${VERSION#v}"
 fi
 if [[ -z "$VERSION" ]]; then
-  echo "usage: $0 <version> [tap-dir]" >&2
+  echo "usage: $0 [tap-dir]" >&2
+  echo "  (set internal/version/VERSION first)" >&2
   exit 1
 fi
 

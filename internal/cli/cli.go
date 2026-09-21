@@ -12,14 +12,13 @@ import (
 	"github.com/fattman2008/lead/internal/gt"
 	"github.com/fattman2008/lead/internal/setup"
 	"github.com/fattman2008/lead/internal/shell"
+	"github.com/fattman2008/lead/internal/version"
 	"github.com/fattman2008/lead/internal/wt"
 	"github.com/spf13/cobra"
 )
 
-// Version is the CLI version. Overridden at link time via:
-//
-//	-ldflags "-X github.com/fattman2008/lead/internal/cli.Version=…"
-var Version = "0.1.0"
+// Version is the CLI version from internal/version/VERSION.
+var Version = version.String()
 
 // Execute runs the pt CLI. Returns process exit code.
 func Execute() int {

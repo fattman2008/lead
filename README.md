@@ -23,10 +23,12 @@ brew update && brew upgrade lead
 Peer dependencies must be on `PATH`: Graphite CLI (`gt`), Worktrunk (`wt`), and `git`.
 
 ```bash
-go build -ldflags "-X github.com/fattman2008/lead/internal/cli.Version=0.1.0" -o bin/pt ./cmd/pt
+just build   # or: go build -o bin/pt ./cmd/pt
 # put bin/pt on your PATH, then:
 pt setup
 ```
+
+Version lives in `internal/version/VERSION` (embedded at build time).
 
 `pt setup` sets Worktrunk:
 
@@ -74,14 +76,17 @@ Tab completion is installed via `pt setup` / `eval "$(pt shell init zsh)"` (bash
 
 ## Development
 
+Requires [just](https://github.com/casey/just).
+
 ```bash
-go test ./...
-go build -o bin/pt ./cmd/pt
-./bin/pt doctor
+just test
+just build
+just doctor
+# or: just check   # test + doctor
 ```
 
 ### Releasing (Homebrew)
 
-1. Tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`
-2. Bump the formula: `./scripts/bump-homebrew-formula.sh X.Y.Z ~/projects/homebrew-tap`
+1. Set `internal/version/VERSION` to `X.Y.Z` and commit
+2. `just release` (or `just tag` then `just bump-formula`)
 3. Commit and push in `homebrew-tap`
