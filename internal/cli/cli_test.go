@@ -44,7 +44,7 @@ func TestCompleteRootIncludesLeadAndGt(t *testing.T) {
 	cmd.Stderr = &stderr
 	_ = cmd.Run() // cobra __complete may exit 0 with directive on stdout
 	got := stdout.String()
-	for _, want := range []string{"create", "checkout", "submit", "absorb", "doctor"} {
+	for _, want := range []string{"create", "checkout", "submit", "absorb", "doctor", "root", "pin"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in completions:\n%s\nstderr:\n%s", want, got, stderr.String())
 		}

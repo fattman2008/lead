@@ -112,6 +112,8 @@ func newRoot() *cobra.Command {
 		cmdRemove(),
 		cmdSync(),
 		cmdDelete(),
+		cmdRoot(),
+		cmdPin(),
 		cmdSetup(),
 		cmdDoctor(),
 		cmdShell(),
@@ -304,9 +306,9 @@ func cmdSync() *cobra.Command {
 
 func cmdDelete() *cobra.Command {
 	return &cobra.Command{
-		Use:                "delete [name]",
-		Aliases:            []string{"dl"},
-		Short:              "Delete a branch and its worktree",
+		Use:     "delete [name]",
+		Aliases: []string{"dl"},
+		Short:   "Delete a branch and its worktree",
 		Long: `Delete a branch (via Graphite) and remove its worktree.
 
 When the branch you are on is deleted, the shell cds into the parent
@@ -318,6 +320,63 @@ checkout, translated to worktrees.`,
 			return flow.Delete(args)
 		},
 	}
+}
+
+func cmdRoot() *cobra.Command {
+	var repo string
+	cmd := &cobra.Command{
+		Use:   "root",
+		Short: "Print the worktree path to use for local binaries",
+		Long: `Print the checkout directory for a repository.
+
+Resolution: current worktree if you are inside one, else the pin (pt pin),
+else the main / canonical worktree. Prints only the directory; callers
+append their own binary path.
+
+Use --repo when wrapping a project from another directory:
+
+  $(pt root --repo ~/Projects/lead)/bin/pt`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return flow.Root(repo)
+		},
+	}
+	cmd.Flags().StringVar(&repo, "repo", "", "Any path in the target repository")
+	_ = cmd.MarkFlagDirname("repo")
+	return cmd
+}
+
+func cmdPin() *cobra.Command {
+	opts := flow.PinOpts{}
+	cmd := &cobra.Command{
+		Use:   "pin [branch]",
+		Short: "Pin a worktree as the default for pt root outside the repo",
+		Long: `Pin a worktree so pt root uses it when you are not inside the repository.
+
+With no argument, pins the current worktree. Pass @ to pin the main clone.
+
+  pt pin          # pin this worktree
+  pt pin feature  # pin that branch's worktree
+  pt pin @        # pin the main clone
+  pt pin --show
+  pt pin --clear`,
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: complete.BranchArg,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			o := opts
+			if len(args) == 1 {
+				o.Branch = args[0]
+			}
+			if (o.Show || o.Clear) && o.Branch != "" {
+				return fmt.Errorf("branch argument is not valid with --show or --clear")
+			}
+			return flow.Pin(o)
+		},
+	}
+	cmd.Flags().BoolVar(&opts.Show, "show", false, "Print the pinned worktree path")
+	cmd.Flags().BoolVar(&opts.Clear, "clear", false, "Remove the pin for this repository")
+	cmd.MarkFlagsMutuallyExclusive("show", "clear")
+	return cmd
 }
 
 func cmdSetup() *cobra.Command {

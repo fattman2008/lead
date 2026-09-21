@@ -7,6 +7,44 @@ import (
 	"testing"
 )
 
+func TestToplevel(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+	got, err := Toplevel(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := CanonPath(dir)
+	if CanonPath(got) != want {
+		t.Fatalf("Toplevel = %q, want %q", got, want)
+	}
+}
+
+func TestContainsPath(t *testing.T) {
+	parent := t.TempDir()
+	child := filepath.Join(parent, "sub", "dir")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sibling := t.TempDir()
+
+	if !ContainsPath(parent, parent) {
+		t.Fatal("parent should contain itself")
+	}
+	if !ContainsPath(parent, child) {
+		t.Fatal("parent should contain subdirectory")
+	}
+	if ContainsPath(parent, sibling) {
+		t.Fatal("parent should not contain sibling temp dir")
+	}
+	if ContainsPath(parent, parent+"-extra") {
+		t.Fatal("prefix match must not count as containment")
+	}
+	if ContainsPath("", child) || ContainsPath(parent, "") {
+		t.Fatal("empty paths are not contained")
+	}
+}
+
 func TestNeedsStageAll(t *testing.T) {
 	dir := t.TempDir()
 	runGit(t, dir, "init")

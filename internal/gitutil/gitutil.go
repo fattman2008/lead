@@ -47,7 +47,16 @@ func Detach(cwd string) error {
 
 // CommonDir returns the absolute path to the shared git directory (.git).
 func CommonDir(cwd string) (string, error) {
-	dir, err := run(cwd, "rev-parse", "--git-common-dir")
+	return absGitPath(cwd, "rev-parse", "--git-common-dir")
+}
+
+// Toplevel returns the absolute path to the current worktree root.
+func Toplevel(cwd string) (string, error) {
+	return absGitPath(cwd, "rev-parse", "--show-toplevel")
+}
+
+func absGitPath(cwd string, args ...string) (string, error) {
+	dir, err := run(cwd, args...)
 	if err != nil {
 		return "", err
 	}
@@ -59,6 +68,39 @@ func CommonDir(cwd string) (string, error) {
 		base = "."
 	}
 	return filepath.Abs(filepath.Join(base, dir))
+}
+
+// CanonPath returns an absolute path, resolving symlinks when the path exists.
+func CanonPath(p string) string {
+	if p == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return filepath.Clean(p)
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real
+	}
+	return abs
+}
+
+// ContainsPath reports whether child is parent or a subdirectory of parent.
+func ContainsPath(parent, child string) bool {
+	if parent == "" || child == "" {
+		return false
+	}
+	rel, err := filepath.Rel(CanonPath(parent), CanonPath(child))
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	return true
 }
 
 // BranchExists reports whether a local branch ref exists.
