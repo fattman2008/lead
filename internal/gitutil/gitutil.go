@@ -23,7 +23,9 @@ func run(cwd string, args ...string) (string, error) {
 		}
 		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
 	}
-	return strings.TrimSpace(stdout.String()), nil
+	// Trim only trailing newlines — leading spaces are meaningful in
+	// `git status --porcelain` (e.g. " M file" = unstaged-only change).
+	return strings.TrimRight(stdout.String(), "\r\n"), nil
 }
 
 // CurrentBranch returns the current branch name for cwd (or ".").
