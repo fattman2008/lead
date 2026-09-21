@@ -19,7 +19,7 @@ func TestDetachCandidates(t *testing.T) {
 
 	t.Run("skips main and current path", func(t *testing.T) {
 		want := map[string]bool{"main": true, "base": true, "clean": true}
-		got, err := detachCandidates(list, "/tmp/base", want, lock.Dirty{}, false)
+		got, err := detachCandidates(list, "/tmp/base", "", want, lock.Dirty{}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -30,7 +30,7 @@ func TestDetachCandidates(t *testing.T) {
 
 	t.Run("dirty blocks without force", func(t *testing.T) {
 		want := map[string]bool{"feat": true, "clean": true}
-		_, err := detachCandidates(list, "/tmp/base", want, lock.Dirty{}, false)
+		_, err := detachCandidates(list, "/tmp/base", "", want, lock.Dirty{}, false)
 		if err == nil || !strings.Contains(err.Error(), "uncommitted") {
 			t.Fatalf("got err %v", err)
 		}
@@ -38,7 +38,7 @@ func TestDetachCandidates(t *testing.T) {
 
 	t.Run("dirty allowed with force", func(t *testing.T) {
 		want := map[string]bool{"feat": true}
-		got, err := detachCandidates(list, "/tmp/base", want, lock.Dirty{}, true)
+		got, err := detachCandidates(list, "/tmp/base", "", want, lock.Dirty{}, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func TestDetachCandidates(t *testing.T) {
 				want[item.Branch] = true
 			}
 		}
-		got, err := detachCandidates(list, "/tmp/base", want, lock.Dirty{}, true)
+		got, err := detachCandidates(list, "/tmp/base", "", want, lock.Dirty{}, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,6 +67,41 @@ func TestDetachCandidates(t *testing.T) {
 		}
 		if !names["feat"] || !names["clean"] {
 			t.Fatalf("missing candidates %#v", got)
+		}
+	})
+}
+
+func TestDetachCandidatesManagedPrefix(t *testing.T) {
+	prefix := "/Users/demo/worktrees"
+	list := &wt.List{Items: []wt.Item{
+		{Branch: "main", Worktree: &wt.Worktree{Path: "/Users/demo/Projects/lead", Main: true}},
+		{Branch: "parked", Worktree: &wt.Worktree{Path: "/Users/demo/worktrees/lead/parked"}},
+		{Branch: "hotfix", Worktree: &wt.Worktree{Path: "/Users/demo/Projects/lead-hotfix", Changes: wt.Changes{Modified: true}}},
+		{Branch: "also", Worktree: &wt.Worktree{Path: "/Users/demo/worktrees/lead/also"}},
+	}}
+	want := map[string]bool{"parked": true, "hotfix": true, "also": true}
+
+	t.Run("empty prefix manages all non-main", func(t *testing.T) {
+		_, err := detachCandidates(list, "/Users/demo/Projects/lead", "", want, lock.Dirty{}, false)
+		if err == nil || !strings.Contains(err.Error(), "uncommitted") {
+			t.Fatalf("got err %v, want dirty unmanaged to block when prefix is empty", err)
+		}
+	})
+
+	t.Run("skips unmanaged even if dirty", func(t *testing.T) {
+		got, err := detachCandidates(list, "/Users/demo/Projects/lead", prefix, want, lock.Dirty{}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names := map[string]bool{}
+		for _, d := range got {
+			names[d.Branch] = true
+		}
+		if names["hotfix"] || names["main"] {
+			t.Fatalf("unmanaged or main detached: %#v", got)
+		}
+		if !names["parked"] || !names["also"] {
+			t.Fatalf("missing managed candidates %#v", got)
 		}
 	})
 }

@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fattman2008/lead/internal/wt"
@@ -27,7 +28,7 @@ func TestWillStripHere(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := willStripHere(list, tc.strip, tc.here)
+			got := willStripHere(list, tc.strip, tc.here, "")
 			if got != tc.want {
 				t.Fatalf("willStripHere(%v, %q) = %v, want %v", tc.strip, tc.here, got, tc.want)
 			}
@@ -121,5 +122,66 @@ func TestHasFlag(t *testing.T) {
 	}
 	if hasFlag([]string{"-f", "--force"}, "--upstack") {
 		t.Fatal("did not expect --upstack")
+	}
+}
+
+func TestRefuseUnmanagedDelete(t *testing.T) {
+	prefix := "/Users/demo/worktrees"
+	list := &wt.List{Items: []wt.Item{
+		{Branch: "main", Worktree: &wt.Worktree{Path: "/Users/demo/Projects/lead", Main: true}},
+		{Branch: "parked", Worktree: &wt.Worktree{Path: "/Users/demo/worktrees/lead/parked"}},
+		{Branch: "hotfix", Worktree: &wt.Worktree{Path: "/Users/demo/Projects/lead-hotfix"}},
+	}}
+
+	t.Run("empty prefix allows all", func(t *testing.T) {
+		if err := refuseUnmanagedDelete(list, []string{"hotfix", "parked"}, ""); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("managed only ok", func(t *testing.T) {
+		if err := refuseUnmanagedDelete(list, []string{"parked"}, prefix); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("unmanaged errors before strip", func(t *testing.T) {
+		err := refuseUnmanagedDelete(list, []string{"hotfix"}, prefix)
+		if err == nil || !strings.Contains(err.Error(), "unmanaged worktree") || !strings.Contains(err.Error(), "hotfix") {
+			t.Fatalf("got err %v", err)
+		}
+		if !strings.Contains(err.Error(), "/Users/demo/Projects/lead-hotfix") {
+			t.Fatalf("error should name path: %v", err)
+		}
+	})
+
+	t.Run("upstack mixed lists unmanaged", func(t *testing.T) {
+		err := refuseUnmanagedDelete(list, []string{"parked", "hotfix"}, prefix)
+		if err == nil || !strings.Contains(err.Error(), "hotfix") {
+			t.Fatalf("got err %v", err)
+		}
+		if strings.Contains(err.Error(), "parked") {
+			t.Fatalf("managed branch should not be in error: %v", err)
+		}
+	})
+
+	t.Run("main is not unmanaged", func(t *testing.T) {
+		if err := refuseUnmanagedDelete(list, []string{"main"}, prefix); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestWillStripHereUnmanaged(t *testing.T) {
+	prefix := "/Users/demo/worktrees"
+	list := &wt.List{Items: []wt.Item{
+		{Branch: "hotfix", Worktree: &wt.Worktree{Path: "/Users/demo/Projects/lead-hotfix"}},
+		{Branch: "parked", Worktree: &wt.Worktree{Path: "/Users/demo/worktrees/lead/parked"}},
+	}}
+	if willStripHere(list, []string{"hotfix"}, "hotfix", prefix) {
+		t.Fatal("unmanaged current should not relocate-for-strip")
+	}
+	if !willStripHere(list, []string{"parked"}, "parked", prefix) {
+		t.Fatal("managed current should strip")
 	}
 }
