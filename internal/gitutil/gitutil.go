@@ -37,6 +37,12 @@ func Switch(cwd, branch string) error {
 	return err
 }
 
+// Detach checks out a detached HEAD at the current commit.
+func Detach(cwd string) error {
+	_, err := run(cwd, "switch", "--detach")
+	return err
+}
+
 // CommonDir returns the absolute path to the shared git directory (.git).
 func CommonDir(cwd string) (string, error) {
 	dir, err := run(cwd, "rev-parse", "--git-common-dir")

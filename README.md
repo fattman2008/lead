@@ -44,7 +44,7 @@ worktree-path = "~/worktrees/{{ repo }}/{{ branch | sanitize }}"
 | Move between branch worktrees | `pt checkout` / `pt switch` / `pt up` / `pt down` |
 | Restack / amend / submit | `pt restack` / `pt modify` / `pt submit` |
 | Sync trunk + tidy worktrees | `pt sync` |
-| Delete branch + worktree | `pt delete` |
+| Delete branch + worktree (cd to parent/trunk) | `pt delete` |
 
 Unknown `pt <cmd>` arguments are forwarded to `gt` (same idea as `gt` → `git`)
 
@@ -64,6 +64,8 @@ pt down          # parent worktree
 pt up            # child worktree
 pt submit --stack
 pt sync          # also removes worktrees for deleted/merged branches
+
+pt delete        # deletes branch + worktree; if current, cds to parent (else trunk)
 ```
 
 ## Commands (core)
