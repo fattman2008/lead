@@ -63,15 +63,17 @@ pt checkout      # stack-aware picker → cd into that branch's worktree
 pt down          # parent worktree
 pt up            # child worktree
 pt submit --stack
-pt sync          # also removes worktrees for deleted/merged branches
+pt sync          # unlocks clean worktrees, syncs, culls deleted/merged
 
 pt delete        # deletes branch + worktree; if current, cds to parent (else trunk)
 ```
 
+Restack/modify/sync detach clean parked worktrees so Graphite can move tips (dirty trees block unless `--force`).
+
 ## Commands (core)
 
-- **Worktree-aware:** `create`, `checkout`/`switch`/`co`, `up`, `down`, `list`, `remove`, `sync`, `delete`
-- **Graphite-shaped:** `modify`, `submit`, `restack`, `log`, `info`, `track`, `init`, `auth`, …
+- **Worktree-aware:** `create`, `checkout`/`switch`/`co`, `up`, `down`, `list`, `remove`, `sync`, `delete`, `modify`, `restack`, `continue`, `abort`, `undo`
+- **Graphite-shaped:** `submit`, `log`, `info`, `track`, `init`, `auth`, …
 - **Meta:** `setup`, `doctor`, `shell init`, `completion`
 
 Tab completion is installed via `pt setup` / `eval "$(pt shell init zsh)"` (bash/fish too). Completions cover Lead commands, branch names for `checkout`/`--onto`, and delegate to `gt`/`wt` for passthrough flags.

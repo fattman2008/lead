@@ -115,17 +115,17 @@ func newRoot() *cobra.Command {
 		cmdSetup(),
 		cmdDoctor(),
 		cmdShell(),
-		passthrough("modify", "m", "Amend or commit on the current branch and restack descendants"),
+		unlocked("modify", "m", "Amend or commit on the current branch and restack descendants", flow.UnlockUpstack),
 		passthrough("submit", "s", "Push the stack and create/update PRs"),
-		passthrough("restack", "", "Rebase the stack onto correct parents"),
+		unlocked("restack", "", "Rebase the stack onto correct parents", flow.UnlockUpstack),
 		passthrough("log", "", "Show the current stack"),
 		passthrough("info", "", "Show info about a branch"),
 		passthrough("track", "", "Start tracking a branch with Graphite"),
 		passthrough("init", "", "Initialize Graphite in this repository"),
 		passthrough("auth", "", "Authenticate with Graphite"),
-		passthrough("undo", "", "Undo the last Graphite command"),
-		passthrough("continue", "", "Continue after resolving conflicts"),
-		passthrough("abort", "", "Abort an in-progress Graphite operation"),
+		unlocked("undo", "", "Undo the last Graphite command", flow.UnlockAllOther),
+		unlocked("continue", "", "Continue after resolving conflicts", flow.UnlockAllOther),
+		unlocked("abort", "", "Abort an in-progress Graphite operation", flow.UnlockAllOther),
 	)
 
 	return root
@@ -134,6 +134,9 @@ func newRoot() *cobra.Command {
 const longHelp = `Lead (pt) wraps Graphite and Worktrunk for stacked PRs with worktree-first parallelism.
 
 Create and navigate in worktrees; restack, submit, and sync stay Graphite-shaped.
+
+Clean parked worktrees may be detached briefly during restack/sync so Graphite
+can move tips; dirty worktrees are treated as locked unless you pass --force.
 
 Peer dependencies: gt (Graphite) and wt (Worktrunk) must be on PATH.
 Unknown commands are forwarded to gt (like gt forwards to git).`
@@ -377,6 +380,22 @@ func passthrough(name, alias, short string) *cobra.Command {
 				return flowExit(code)
 			}
 			return nil
+		},
+	}
+	if alias != "" {
+		cmd.Aliases = []string{alias}
+	}
+	return cmd
+}
+
+func unlocked(name, alias, short string, scope flow.UnlockScope) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                name,
+		Short:              short,
+		DisableFlagParsing: true,
+		ValidArgsFunction:  complete.FromGt(name),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return flow.RunGtUnlocked(append([]string{name}, args...), scope)
 		},
 	}
 	if alias != "" {
