@@ -153,6 +153,8 @@ func cmdCreate() *cobra.Command {
 
 Pass a commit message; the branch name is auto-generated (Graphite-style).
 Unstaged/untracked changes are staged automatically when present.
+If the working tree is clean, an empty commit is created with that message
+so later pt modify -a can amend it.
 
 Examples:
   pt create "add API"

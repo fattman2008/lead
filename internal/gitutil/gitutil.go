@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -136,6 +137,37 @@ func LocalBranches(cwd string) ([]string, error) {
 		}
 	}
 	return branches, nil
+}
+
+// CommitsAhead returns the number of commits on HEAD that are not in upstream
+// (git rev-list --count upstream..HEAD).
+func CommitsAhead(cwd, upstream string) (int, error) {
+	if upstream == "" {
+		return 0, fmt.Errorf("commits ahead: empty upstream")
+	}
+	out, err := run(cwd, "rev-list", "--count", upstream+"..HEAD")
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0, fmt.Errorf("commits ahead: parse count %q: %w", out, err)
+	}
+	return n, nil
+}
+
+// CommitAllowEmpty creates a commit with --allow-empty and the given -m values
+// (each extra message is a new paragraph, same as git commit -m ... -m ...).
+func CommitAllowEmpty(cwd string, messages []string) error {
+	if len(messages) == 0 {
+		return fmt.Errorf("commit message required")
+	}
+	args := []string{"commit", "--allow-empty"}
+	for _, m := range messages {
+		args = append(args, "-m", m)
+	}
+	_, err := run(cwd, args...)
+	return err
 }
 
 // NeedsStageAll reports whether the worktree has unstaged or untracked changes
