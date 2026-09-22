@@ -42,6 +42,7 @@ worktree-path = "~/worktrees/{{ repo }}/{{ branch | sanitize }}"
 | ----------- | ----- |
 | New stacked branch in its own worktree | `pt create` |
 | Move between branch worktrees | `pt checkout` / `pt switch` / `pt up` / `pt down` |
+| Work on a branch in the main worktree | `pt checkout --main` |
 | Restack / amend / submit | `pt restack` / `pt modify` / `pt submit` |
 | Sync trunk + tidy worktrees | `pt sync` |
 | Delete branch + worktree (cd to parent/trunk) | `pt delete` |
@@ -62,6 +63,8 @@ pt create "add UI"
 # → stacked on the previous branch, new worktree
 
 pt checkout      # stack-aware picker → cd into that branch's worktree
+pt checkout --main feature  # work on feature in the main worktree (no linked worktree)
+pt checkout feature         # if it was on the main worktree, restore trunk and recreate the worktree
 pt down          # parent worktree
 pt up            # child worktree
 pt submit --stack
@@ -74,7 +77,11 @@ Restack/modify/sync detach clean parked worktrees so Graphite can move tips (dir
 
 ## Local builds
 
-The canonical clone stays on trunk; feature work lives in linked worktrees. Hardcoded paths like `~/Projects/foo/bin/foo` therefore always hit trunk. `pt root` prints the checkout to use instead:
+The main worktree stays on trunk; feature work lives in linked worktrees. Hardcoded paths like `~/Projects/foo/bin/foo` therefore always hit trunk.
+
+`pt checkout --main` checks the branch out on the main worktree and removes the linked worktree, when a repo's local tooling assumes that checkout. `pt checkout <branch>` restores a worktree; `pt checkout -t` returns the main worktree to trunk.
+
+`pt root` prints the checkout to use instead:
 
 1. The worktree you are in, if it belongs to that repo
 2. Else the pin (`pt pin`)

@@ -40,6 +40,11 @@ func Create(opts CreateOpts) error {
 		return fmt.Errorf("determine current branch: %w", err)
 	}
 
+	occ, _, occErr := loadOccupancy(cwd)
+	if occErr != nil {
+		occ = occupancy{}
+	}
+
 	// Graphite-style: if the tree has unstaged/untracked changes and the user
 	// didn't already pick -a/-u, stage everything so create can commit them.
 	if !opts.All && !opts.Update {
@@ -105,6 +110,12 @@ func Create(opts CreateOpts) error {
 		return err
 	}
 
+	if shouldCreateStay(occ, cwd) {
+		// Occupying the main worktree: stay on the new branch (Graphite in a
+		// single working tree). Do not restore parent or spawn a child worktree.
+		return cdfile.Emit(occ.Path)
+	}
+
 	if err := gitutil.Switch(cwd, here); err != nil {
 		return fmt.Errorf("restore worktree to %s (new branch is %s): %w\nrecover: stay here or switch manually", here, newBranch, err)
 	}
@@ -160,6 +171,9 @@ func (e exitCodeError) ExitCode() int { return int(e) }
 
 // SwitchTo moves to a branch's worktree (creating if needed) and emits cd.
 // branch must be non-empty; interactive selection belongs in Checkout.
+//
+// If the main worktree is borrowed, only leaving to that branch's
+// worktree or to trunk is allowed; other targets error.
 func SwitchTo(branch string, extra []string) error {
 	if branch == "" {
 		return fmt.Errorf("switch: branch required")
@@ -168,6 +182,40 @@ func SwitchTo(branch string, extra []string) error {
 	if err != nil {
 		return err
 	}
+
+	occ, list, err := loadOccupancy(cwd)
+	if err != nil {
+		return err
+	}
+
+	// @ and ^ name the main worktree, not a branch. While borrowed that is a
+	// no-op cd; do not treat them as "other branch" jail.
+	if branch == "@" || branch == "^" {
+		if occ.Borrowed() {
+			return cdfile.Emit(occ.Path)
+		}
+		return wtSwitch(cwd, branch, extra)
+	}
+
+	switch classifyNav(occ, branch) {
+	case navJail:
+		return mainJailError(occ, branch)
+	case navExitTrunk:
+		if err := restoreMainToTrunk(list, occ); err != nil {
+			return err
+		}
+		return cdfile.Emit(occ.Path)
+	case navExitWorktree:
+		if err := restoreMainToTrunk(list, occ); err != nil {
+			return err
+		}
+		return wtSwitch(cwd, branch, extra)
+	default:
+		return wtSwitch(cwd, branch, extra)
+	}
+}
+
+func wtSwitch(cwd, branch string, extra []string) error {
 	args := append([]string{branch}, extra...)
 	res, code, err := wt.SwitchJSON(cwd, args...)
 	if err != nil {

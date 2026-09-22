@@ -40,6 +40,12 @@ func Switch(cwd, branch string) error {
 	return err
 }
 
+// SwitchForce checks out branch, discarding local changes in cwd.
+func SwitchForce(cwd, branch string) error {
+	_, err := run(cwd, "switch", "--discard-changes", branch)
+	return err
+}
+
 // Detach checks out a detached HEAD at the current commit.
 func Detach(cwd string) error {
 	_, err := run(cwd, "switch", "--detach")

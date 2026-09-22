@@ -68,6 +68,21 @@ func Delete(args []string) error {
 
 	opCwd := cwd
 	destPath := ""
+	force := hasForceFlag(args)
+
+	trunk, err := gt.Trunk(cwd)
+	if err != nil {
+		return err
+	}
+	occ, err := mainOccupancy(before, trunk)
+	if err != nil {
+		return err
+	}
+	if shouldReleaseMain(occ, strip) {
+		if err := releaseMainForDelete(occ, before, force); err != nil {
+			return err
+		}
+	}
 
 	// Relocate before strip whenever the active worktree is in the strip set
 	// (delete current, or --upstack that includes the current descendant).
@@ -87,7 +102,6 @@ func Delete(args []string) error {
 		opCwd = destPath
 	}
 
-	force := hasForceFlag(args)
 	stripped, err := stripWorktrees(opCwd, before, strip, destPath, force)
 	if err != nil {
 		restoreStrippedWorktrees(opCwd, stripped, here)
@@ -147,6 +161,20 @@ func Delete(args []string) error {
 }
 
 // willStripHere reports whether stripWorktrees would remove the worktree for here.
+func releaseMainForDelete(occ occupancy, list *wt.List, force bool) error {
+	if occ.Dirty && !force {
+		return fmt.Errorf("main worktree has uncommitted changes; commit/stash or pass --force")
+	}
+	if linked := linkedWorktree(list, occ.Trunk); linked != nil {
+		return fmt.Errorf("trunk %s is checked out in a linked worktree (%s); cannot move the main worktree off %s", occ.Trunk, linked.Path, occ.Branch)
+	}
+	fmt.Fprintf(os.Stderr, "moving main worktree to %s before deleting %s\n", occ.Trunk, occ.Branch)
+	if occ.Dirty {
+		return gitutil.SwitchForce(occ.Path, occ.Trunk)
+	}
+	return gitutil.Switch(occ.Path, occ.Trunk)
+}
+
 func willStripHere(before *wt.List, strip []string, here string) bool {
 	if here == "" {
 		return false
