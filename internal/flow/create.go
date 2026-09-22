@@ -98,6 +98,13 @@ func Create(opts CreateOpts) error {
 		return fmt.Errorf("gt create did not leave a new branch (still on %s)", here)
 	}
 
+	// Clean-tree gt create uses -m only to name the branch. Seed an empty
+	// commit so later pt modify -a amends that message instead of prompting.
+	gtParent, _ := gt.Parent(cwd)
+	if err := seedEmptyCommit(cwd, createSeedParent(gtParent, opts.Onto, here), opts.Message); err != nil {
+		return err
+	}
+
 	if err := gitutil.Switch(cwd, here); err != nil {
 		return fmt.Errorf("restore worktree to %s (new branch is %s): %w\nrecover: stay here or switch manually", here, newBranch, err)
 	}
@@ -110,6 +117,37 @@ func Create(opts CreateOpts) error {
 		return fmt.Errorf("wt switch failed for %s (exit %d); worktree restored to %s", newBranch, code, here)
 	}
 	return cdfile.Emit(res.Path)
+}
+
+// createSeedParent prefers Graphite's parent, then --onto, then the branch
+// we created from (here).
+func createSeedParent(gtParent, onto, here string) string {
+	if gtParent != "" {
+		return gtParent
+	}
+	if onto != "" {
+		return onto
+	}
+	return here
+}
+
+// seedEmptyCommit writes an empty commit with messages when the new branch
+// has no unique commits yet. No-op if messages is empty or the branch is already ahead.
+func seedEmptyCommit(cwd, parent string, messages []string) error {
+	if len(messages) == 0 || parent == "" {
+		return nil
+	}
+	ahead, err := gitutil.CommitsAhead(cwd, parent)
+	if err != nil {
+		return fmt.Errorf("count commits on new branch: %w", err)
+	}
+	if ahead > 0 {
+		return nil
+	}
+	if err := gitutil.CommitAllowEmpty(cwd, messages); err != nil {
+		return fmt.Errorf("create empty commit with message: %w", err)
+	}
+	return nil
 }
 
 type exitCodeError int

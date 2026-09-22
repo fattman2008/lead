@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,6 +103,90 @@ func TestNeedsStageAll(t *testing.T) {
 	})
 }
 
+func TestCommitsAhead(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "test")
+	write(t, dir, "file.txt", "base\n")
+	runGit(t, dir, "add", "file.txt")
+	runGit(t, dir, "commit", "-m", "init")
+
+	n, err := CommitsAhead(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("on main: ahead = %d, want 0", n)
+	}
+
+	runGit(t, dir, "checkout", "-b", "feat")
+	n, err = CommitsAhead(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("empty feat: ahead = %d, want 0", n)
+	}
+
+	write(t, dir, "file.txt", "change\n")
+	runGit(t, dir, "add", "file.txt")
+	runGit(t, dir, "commit", "-m", "feat commit")
+	n, err = CommitsAhead(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("after commit: ahead = %d, want 1", n)
+	}
+
+	if _, err := CommitsAhead(dir, ""); err == nil {
+		t.Fatal("expected error for empty upstream")
+	}
+}
+
+func TestCommitAllowEmpty(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "test")
+	write(t, dir, "file.txt", "base\n")
+	runGit(t, dir, "add", "file.txt")
+	runGit(t, dir, "commit", "-m", "init")
+	runGit(t, dir, "checkout", "-b", "feat")
+
+	if err := CommitAllowEmpty(dir, nil); err == nil {
+		t.Fatal("expected error when messages is empty")
+	}
+
+	if err := CommitAllowEmpty(dir, []string{"some thing"}); err != nil {
+		t.Fatal(err)
+	}
+	subject := gitOut(t, dir, "log", "-1", "--format=%s")
+	if subject != "some thing" {
+		t.Fatalf("subject = %q, want %q", subject, "some thing")
+	}
+	n, err := CommitsAhead(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("ahead = %d, want 1", n)
+	}
+
+	if err := CommitAllowEmpty(dir, []string{"subject line", "body paragraph"}); err != nil {
+		t.Fatal(err)
+	}
+	subject = gitOut(t, dir, "log", "-1", "--format=%s")
+	if subject != "subject line" {
+		t.Fatalf("subject = %q, want %q", subject, "subject line")
+	}
+	body := gitOut(t, dir, "log", "-1", "--format=%b")
+	if !strings.Contains(body, "body paragraph") {
+		t.Fatalf("body = %q, want to contain %q", body, "body paragraph")
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
@@ -109,6 +194,17 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
+}
+
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return strings.TrimRight(string(out), "\r\n")
 }
 
 func write(t *testing.T, dir, name, contents string) {
