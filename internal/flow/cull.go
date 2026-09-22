@@ -29,11 +29,9 @@ func Sync(args []string) error {
 }
 
 func cullMissingBranches(cwd string, before *wt.List) error {
+	prefix := managedPrefix()
 	for _, item := range before.Items {
-		if item.Worktree == nil || item.Branch == "" {
-			continue
-		}
-		if item.Worktree.Main {
+		if !cullable(item, prefix) {
 			continue
 		}
 		exists, err := gitutil.BranchExists(cwd, item.Branch)
@@ -48,6 +46,17 @@ func cullMissingBranches(cwd string, before *wt.List) error {
 		}
 	}
 	return nil
+}
+
+func cullable(item wt.Item, prefix string) bool {
+	if item.Worktree == nil || item.Branch == "" || item.Worktree.Main {
+		return false
+	}
+	if wt.IsManaged(item.Worktree.Path, prefix) {
+		return true
+	}
+	fmt.Fprintf(os.Stderr, "skipping unmanaged worktree for %s (%s)\n", item.Branch, item.Worktree.Path)
+	return false
 }
 
 func removeWorktreeItem(cwd string, item wt.Item) error {
