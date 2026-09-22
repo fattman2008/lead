@@ -197,11 +197,16 @@ worktree — it only cds into that branch's worktree (creating it if needed).
 Named targets and -t go straight to the worktree, including Worktrunk
 shortcuts like @, -, and ^.
 
+--main checks the branch out on the main worktree instead of a linked
+worktree (removes that branch's linked worktree). Leave with pt checkout
+<branch> (restores a worktree) or pt checkout -t (main worktree back to trunk).
+
 Examples:
   pt checkout              # interactive stack picker, then cd into worktree
   pt checkout -s           # only ancestors/descendants of current branch
   pt checkout feature      # move to feature's worktree
-  pt checkout -t           # trunk worktree`,
+  pt checkout -t           # trunk worktree
+  pt checkout --main feature`,
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: complete.BranchArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -221,6 +226,7 @@ Examples:
 	cmd.Flags().BoolVarP(&opts.Stack, "stack", "s", false, "Only show ancestors and descendants in interactive selection")
 	cmd.Flags().BoolVarP(&opts.ShowUntracked, "show-untracked", "u", false, "Include untracked branches in interactive selection")
 	cmd.Flags().BoolVarP(&opts.All, "all", "a", false, "Show branches across all configured trunks")
+	cmd.Flags().BoolVar(&opts.Main, "main", false, "Check out on the main worktree instead of a linked worktree")
 	return cmd
 }
 

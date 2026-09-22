@@ -17,6 +17,7 @@ type CheckoutOpts struct {
 	Stack         bool
 	All           bool
 	ShowUntracked bool
+	Main          bool
 	Extra         []string // forwarded to wt switch for named targets
 }
 
@@ -26,6 +27,8 @@ type CheckoutOpts struct {
 // Interactive selection lists Graphite-tracked branches that still exist as
 // local git refs (stack-aware) and then wt-switches — never checks the branch
 // out in the current worktree.
+//
+// --main borrows the main worktree for the branch instead (see checkoutMain).
 func Checkout(opts CheckoutOpts) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -33,12 +36,18 @@ func Checkout(opts CheckoutOpts) error {
 	}
 
 	if opts.Branch != "" {
+		if opts.Main {
+			return checkoutMain(cwd, opts.Branch)
+		}
 		return SwitchTo(opts.Branch, opts.Extra)
 	}
 	if opts.Trunk {
 		trunk, err := gt.Trunk(cwd)
 		if err != nil {
 			return err
+		}
+		if opts.Main {
+			return checkoutMain(cwd, trunk)
 		}
 		return SwitchTo(trunk, nil)
 	}
@@ -61,6 +70,9 @@ func Checkout(opts CheckoutOpts) error {
 	selected, err := pickBranch(choices, here)
 	if err != nil {
 		return err
+	}
+	if opts.Main {
+		return checkoutMain(cwd, selected)
 	}
 	return SwitchTo(selected, nil)
 }

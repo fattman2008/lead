@@ -62,6 +62,18 @@ func runGtUnlocked(cwd string, args []string, scope UnlockScope, check lock.Chec
 		return err
 	}
 
+	trunk, err := gt.Trunk(cwd)
+	if err != nil {
+		return err
+	}
+	occ, err := mainOccupancy(list, trunk)
+	if err != nil {
+		return err
+	}
+	if err := rejectMainRewrite(occ, cwdAbs, targets); err != nil {
+		return err
+	}
+
 	force := hasForceFlag(args)
 	detached, err := detachTargets(list, cwdAbs, targets, check, force)
 	if err != nil {

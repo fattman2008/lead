@@ -60,6 +60,17 @@ func TestCompleteSubmitFlags(t *testing.T) {
 	}
 }
 
+func TestCheckoutHelpIncludesMain(t *testing.T) {
+	exe := buildTestPT(t)
+	out, err := exec.Command(exe, "checkout", "--help").Output()
+	if err != nil {
+		t.Fatalf("pt checkout --help: %v", err)
+	}
+	if !bytes.Contains(out, []byte("--main")) {
+		t.Fatalf("expected --main, got:\n%s", out)
+	}
+}
+
 func buildTestPT(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
